@@ -21,6 +21,7 @@ export type Database = {
           DATA: string
           HORA: string
           id: number
+          loja_id: string | null
           NOME: string | null
           PROFISSIONAL: string | null
           STATUS:
@@ -33,6 +34,7 @@ export type Database = {
           DATA: string
           HORA: string
           id?: number
+          loja_id?: string | null
           NOME?: string | null
           PROFISSIONAL?: string | null
           STATUS?:
@@ -45,13 +47,22 @@ export type Database = {
           DATA?: string
           HORA?: string
           id?: number
+          loja_id?: string | null
           NOME?: string | null
           PROFISSIONAL?: string | null
           STATUS?:
             | Database["public"]["Enums"]["status_agendamento_robusto"]
             | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "agendamentos_robustos_loja_fk"
+            columns: ["loja_id"]
+            isOneToOne: false
+            referencedRelation: "info_loja"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       bd_ativo: {
         Row: {
@@ -110,6 +121,42 @@ export type Database = {
         Update: {
           data?: string
           descricao?: string
+        }
+        Relationships: []
+      }
+      info_loja: {
+        Row: {
+          address: string | null
+          closing_time: string
+          id: string
+          instructions: string | null
+          maps_url: string | null
+          name: string
+          opening_time: string
+          phone: string | null
+          slot_interval_minutes: number
+        }
+        Insert: {
+          address?: string | null
+          closing_time?: string
+          id?: string
+          instructions?: string | null
+          maps_url?: string | null
+          name: string
+          opening_time?: string
+          phone?: string | null
+          slot_interval_minutes?: number
+        }
+        Update: {
+          address?: string | null
+          closing_time?: string
+          id?: string
+          instructions?: string | null
+          maps_url?: string | null
+          name?: string
+          opening_time?: string
+          phone?: string | null
+          slot_interval_minutes?: number
         }
         Relationships: []
       }

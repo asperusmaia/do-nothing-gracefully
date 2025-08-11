@@ -72,10 +72,14 @@ export const Auth = () => {
         </h1>
       </div>
 
+      <div className="absolute top-12 right-12 z-10">
+        <Button onClick={() => navigate('/booking')}>Agendar Atendimento</Button>
+      </div>
+
       <Card className="w-full max-w-md bg-card/95 backdrop-blur-sm border-border shadow-2xl relative z-10">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-bold text-card-foreground">
-            Acesso Restrito
+            Entrar como Barbeiro
           </CardTitle>
           <p className="text-muted-foreground">
             Entre com suas credenciais para acessar o dashboard

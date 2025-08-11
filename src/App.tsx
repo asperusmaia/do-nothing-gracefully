@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter as Router, Routes, Route } from "react-router-dom";
 import { Dashboard } from "@/pages/Dashboard";
 import { Auth } from "@/pages/Auth";
+import Booking from "@/pages/Booking";
 import { Toaster } from "sonner";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -68,6 +69,7 @@ const App = () => {
           <Routes>
             <Route path="/" element={user ? <Dashboard /> : <Auth />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/booking" element={<Booking />} />
             <Route path="*" element={user ? <Dashboard /> : <Auth />} />
           </Routes>
         </div>

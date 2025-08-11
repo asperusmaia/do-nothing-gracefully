@@ -1,1 +1,7 @@
 project_id = "pczvumazsjbgdrncobvb"
+
+[functions.get_available_slots]
+verify_jwt = false
+
+[functions.book_slot]
+verify_jwt = false
