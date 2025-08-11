@@ -1,24 +1,82 @@
+
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>do-nothing-gracefully</title>
-    <meta name="description" content="Lovable Generated Project" />
-    <meta name="author" content="Lovable" />
+    <meta name="theme-color" content="#000000" />
+    <link rel="manifest" href="/manifest.json" />
+    <title>Dashboard ASPERUS - Sistema de Agendamentos</title>
+    <meta name="description" content="Dashboard ASPERUS - Painel de controle para agendamentos" />
+    <meta name="author" content="ASPERUS" />
 
-    <meta property="og:title" content="do-nothing-gracefully" />
-    <meta property="og:description" content="Lovable Generated Project" />
+    <meta property="og:title" content="Dashboard ASPERUS" />
+    <meta property="og:description" content="Sistema de Agendamentos - Dashboard ASPERUS" />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@lovable_dev" />
-    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="./favicon.ico" />
+    
+    <!-- Preconnect to fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    
+    <!-- Google Fonts -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" />
+    
+    <!-- Preload critical resources -->
+    <link rel="modulepreload" href="./src/main.tsx" />
+    
+    <!-- GitHub Pages SPA script - simplified -->
+    <script>
+      (function(l) {
+        if (l.search[1] === '/' ) {
+          var decoded = l.search.slice(1).split('&').map(function(s) { 
+            return s.replace(/~and~/g, '&')
+          }).join('?');
+          window.history.replaceState(null, null,
+              l.pathname.slice(0, -1) + decoded + l.hash
+          );
+        }
+      }(window.location))
+    </script>
+    
+    <script>
+      console.log("HTML loaded on:", window.location.href);
+      console.log("Environment detection:", {
+        isVercel: window.location.hostname.includes('vercel'),
+        isGitHubPages: window.location.hostname.includes('github.io'),
+        hostname: window.location.hostname
+      });
+    </script>
   </head>
 
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module" src="./src/main.tsx"></script>
+    <script>
+      console.log("Body loaded, root element:", document.getElementById("root"));
+      
+      // Fallback para casos onde o React não carrega
+      setTimeout(() => {
+        const root = document.getElementById("root");
+        if (root && root.innerHTML.trim() === '') {
+          console.error("React app não carregou após 5 segundos");
+          root.innerHTML = `
+            <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; font-family: system-ui, sans-serif;">
+              <div style="text-align: center; padding: 2rem;">
+                <h1 style="color: #dc2626; margin-bottom: 1rem;">Erro ao carregar a aplicação</h1>
+                <p style="color: #6b7280;">Por favor, recarregue a página ou verifique o console para mais detalhes.</p>
+                <button onclick="window.location.reload()" style="margin-top: 1rem; padding: 0.5rem 1rem; background: #3b82f6; color: white; border: none; border-radius: 0.375rem; cursor: pointer;">
+                  Recarregar Página
+                </button>
+              </div>
+            </div>
+          `;
+        }
+      }, 5000);
+    </script>
   </body>
 </html>

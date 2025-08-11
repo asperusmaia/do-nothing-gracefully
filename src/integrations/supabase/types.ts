@@ -10,10 +10,43 @@ export type Database = {
   // Allows to automatically instanciate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.4"
+    PostgrestVersion: "12.2.3 (519615d)"
   }
   public: {
     Tables: {
+      agendamentos: {
+        Row: {
+          CONTATO: string | null
+          created_at: string
+          DATA: string | null
+          HORA: string | null
+          id: number
+          NOME: string | null
+          PROFISSIONAL: string | null
+          STATUS: string | null
+        }
+        Insert: {
+          CONTATO?: string | null
+          created_at?: string
+          DATA?: string | null
+          HORA?: string | null
+          id?: number
+          NOME?: string | null
+          PROFISSIONAL?: string | null
+          STATUS?: string | null
+        }
+        Update: {
+          CONTATO?: string | null
+          created_at?: string
+          DATA?: string | null
+          HORA?: string | null
+          id?: number
+          NOME?: string | null
+          PROFISSIONAL?: string | null
+          STATUS?: string | null
+        }
+        Relationships: []
+      }
       agendamentos_robustos: {
         Row: {
           CONTATO: string | null
@@ -71,33 +104,6 @@ export type Database = {
         }
         Relationships: []
       }
-      cadastro: {
-        Row: {
-          contato: string
-          created_at: string
-          data_nascimento: string
-          id: number
-          nome: string
-          serviços_preferidos: string
-        }
-        Insert: {
-          contato: string
-          created_at?: string
-          data_nascimento: string
-          id?: number
-          nome: string
-          serviços_preferidos: string
-        }
-        Update: {
-          contato?: string
-          created_at?: string
-          data_nascimento?: string
-          id?: number
-          nome?: string
-          serviços_preferidos?: string
-        }
-        Relationships: []
-      }
       feriados: {
         Row: {
           data: string
@@ -115,10 +121,47 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      agendamento_publico: {
+        Row: {
+          CONTATO: string | null
+          DATA: string | null
+          HORA: string | null
+          NOME: string | null
+          PROFISSIONAL: string | null
+          STATUS: string | null
+        }
+        Insert: {
+          CONTATO?: string | null
+          DATA?: string | null
+          HORA?: string | null
+          NOME?: string | null
+          PROFISSIONAL?: string | null
+          STATUS?: string | null
+        }
+        Update: {
+          CONTATO?: string | null
+          DATA?: string | null
+          HORA?: string | null
+          NOME?: string | null
+          PROFISSIONAL?: string | null
+          STATUS?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
-      [_ in never]: never
+      get_available_slots: {
+        Args: { numero_de_dias?: number; limite_horarios?: number }
+        Returns: Json
+      }
+      get_client_future_appointments: {
+        Args: { client_contact: string }
+        Returns: Json
+      }
+      inserir_3x_e_parar: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       status_agendamento_robusto: "AGENDADO" | "REAGENDADO" | "CANCELADO"
