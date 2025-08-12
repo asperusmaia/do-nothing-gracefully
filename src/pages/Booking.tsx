@@ -214,12 +214,12 @@ export default function Booking() {
               <CardTitle>Profissional (opcional)</CardTitle>
             </CardHeader>
             <CardContent>
-              <Select value={professional} onValueChange={setProfessional}>
+              <Select value={professional || "__any__"} onValueChange={(v) => setProfessional(v === "__any__" ? "" : v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Qualquer" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Qualquer</SelectItem>
+                  <SelectItem value="__any__">Qualquer</SelectItem>
                   {pros.map((p) => (
                     <SelectItem key={p} value={p}>{p}</SelectItem>
                   ))}
