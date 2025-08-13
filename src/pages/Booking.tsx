@@ -12,7 +12,6 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
-
 interface Loja {
   id: string;
   name: string;
@@ -26,7 +25,6 @@ interface Loja {
   escolha_serviços?: string;
   instructions?: string;
 }
-
 export default function Booking() {
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [lojaId, setLojaId] = useState<string>("");
@@ -42,7 +40,6 @@ export default function Booking() {
   const [service, setService] = useState<string>("");
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [selectedDateStr, setSelectedDateStr] = useState<string | null>(null);
-
   useEffect(() => {
     document.title = "Agendar atendimento | ÁSPERUS";
   }, []);
@@ -50,7 +47,10 @@ export default function Booking() {
   // Carregar lojas
   useEffect(() => {
     (async () => {
-      const { data, error } = await supabase.from("info_loja").select("*");
+      const {
+        data,
+        error
+      } = await supabase.from("info_loja").select("*");
       if (error) {
         console.error(error);
         toast.error("Não foi possível carregar as lojas.");
@@ -64,22 +64,13 @@ export default function Booking() {
   // Carregar profissionais e serviços a partir da info_loja selecionada
   useEffect(() => {
     if (!lojaId || !lojas.length) return;
-    const lojaSel = lojas.find((l) => l.id === lojaId);
+    const lojaSel = lojas.find(l => l.id === lojaId);
     if (!lojaSel) return;
-
-    const prosList = (lojaSel.nome_profissionais || "")
-      .split(/[;,\n]/)
-      .map((s) => s.trim())
-      .filter(Boolean);
+    const prosList = (lojaSel.nome_profissionais || "").split(/[;,\n]/).map(s => s.trim()).filter(Boolean);
     setPros(prosList);
-
-    const servList = (lojaSel.escolha_serviços || "")
-      .split(/[;,\n]/)
-      .map((s) => s.trim())
-      .filter(Boolean);
+    const servList = (lojaSel.escolha_serviços || "").split(/[;,\n]/).map(s => s.trim()).filter(Boolean);
     setServices(servList);
   }, [lojaId, lojas]);
-
   const dateStr = useMemo(() => {
     if (!date) return "";
     const y = date.getFullYear();
@@ -87,56 +78,57 @@ export default function Booking() {
     const d = String(date.getDate()).padStart(2, "0");
     return `${y}-${m}-${d}`;
   }, [date]);
-
-const baseDate = useMemo(() => date || new Date(), [date]);
-
-const nextSixDates = useMemo(() => {
-  const arr: string[] = [];
-  const d = new Date(baseDate);
-  for (let i = 0; i < 6; i++) {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    arr.push(`${y}-${m}-${dd}`);
-    d.setDate(d.getDate() + 1);
+  const baseDate = useMemo(() => date || new Date(), [date]);
+  const nextSixDates = useMemo(() => {
+    const arr: string[] = [];
+    const d = new Date(baseDate);
+    for (let i = 0; i < 6; i++) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      arr.push(`${y}-${m}-${dd}`);
+      d.setDate(d.getDate() + 1);
+    }
+    return arr;
+  }, [baseDate]);
+  async function fetchSlotsFor(dStr: string) {
+    const {
+      data,
+      error
+    } = await supabase.functions.invoke("get_available_slots", {
+      body: {
+        loja_id: lojaId,
+        date: dStr,
+        professional: professional || undefined
+      }
+    });
+    if (error) throw error;
+    return data?.slots as string[] || [];
   }
-  return arr;
-}, [baseDate]);
-
-async function fetchSlotsFor(dStr: string) {
-  const { data, error } = await supabase.functions.invoke("get_available_slots", {
-    body: { loja_id: lojaId, date: dStr, professional: professional || undefined },
-  });
-  if (error) throw error;
-  return (data?.slots as string[]) || [];
-}
-
-async function fetchAllSlots() {
-  if (!lojaId) return;
-  setLoadingSlots(true);
-  try {
-    const results: [string, string[]][] = await Promise.all(
-      nextSixDates.map(async (d): Promise<[string, string[]]> => {
+  async function fetchAllSlots() {
+    if (!lojaId) return;
+    setLoadingSlots(true);
+    try {
+      const results: [string, string[]][] = await Promise.all(nextSixDates.map(async (d): Promise<[string, string[]]> => {
         try {
           const s = await fetchSlotsFor(d);
           return [d, s];
         } catch {
           return [d, [] as string[]];
         }
-      })
-    );
-    const map: Record<string, string[]> = {};
-    results.forEach(([d, s]) => {
-      map[d] = s;
-    });
-    setSlotsByDate(map);
-  } catch (e: any) {
-    console.error(e);
-    toast.error("Erro ao buscar horários disponíveis.");
-  } finally {
-    setLoadingSlots(false);
+      }));
+      const map: Record<string, string[]> = {};
+      results.forEach(([d, s]) => {
+        map[d] = s;
+      });
+      setSlotsByDate(map);
+    } catch (e: any) {
+      console.error(e);
+      toast.error("Erro ao buscar horários disponíveis.");
+    } finally {
+      setLoadingSlots(false);
+    }
   }
-}
 
   // Atualização automática ao mudar loja/data/profissional
   useEffect(() => {
@@ -147,19 +139,15 @@ async function fetchAllSlots() {
   // Realtime para atualizar slots quando houver mudanças
   useEffect(() => {
     if (!lojaId) return;
-    const channel = supabase
-      .channel("booking-slots")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "agendamentos_robustos" },
-        () => fetchAllSlots()
-      )
-      .subscribe();
+    const channel = supabase.channel("booking-slots").on("postgres_changes", {
+      event: "*",
+      schema: "public",
+      table: "agendamentos_robustos"
+    }, () => fetchAllSlots()).subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
   }, [lojaId, professional, nextSixDates]);
-
   async function handleBook() {
     if (!name || !contact) {
       toast.warning("Preencha nome e contato.");
@@ -178,7 +166,10 @@ async function fetchAllSlots() {
       return;
     }
     try {
-      const { data, error } = await supabase.functions.invoke("book_slot", {
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke("book_slot", {
         body: {
           loja_id: lojaId,
           date: selectedDateStr,
@@ -186,8 +177,8 @@ async function fetchAllSlots() {
           name,
           contact,
           professional,
-          service,
-        },
+          service
+        }
       });
       if (error) throw error;
       setBooking(data?.booking);
@@ -200,11 +191,8 @@ async function fetchAllSlots() {
       toast.error(msg.includes("duplicate") ? "Horário indisponível." : msg);
     }
   }
-
-  const loja = lojas.find((l) => l.id === lojaId);
-
-  return (
-    <div className="min-h-screen bg-background">
+  const loja = lojas.find(l => l.id === lojaId);
+  return <div className="min-h-screen bg-background">
       <main className="container mx-auto px-6 py-8">
         <header className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-primary">Agendar atendimento</h1>
@@ -221,25 +209,13 @@ async function fetchAllSlots() {
             <CardContent>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !date && "text-muted-foreground"
-                    )}
-                  >
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !date && "text-muted-foreground")}>
                     <CalendarIcon />
                     {date ? format(date, "PPP") : <span>Escolha uma data</span>}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={setDate}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto [&_.rdp-head]:hidden")}
-                  />
+                  <Calendar mode="single" selected={date} onSelect={setDate} initialFocus className={cn("p-3 pointer-events-auto [&_.rdp-head]:hidden")} />
                 </PopoverContent>
               </Popover>
             </CardContent>
@@ -256,9 +232,7 @@ async function fetchAllSlots() {
                   <SelectValue placeholder="Selecione um profissional" />
                 </SelectTrigger>
                 <SelectContent>
-                  {pros.map((p) => (
-                    <SelectItem key={p} value={p}>{p}</SelectItem>
-                  ))}
+                  {pros.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                 </SelectContent>
               </Select>
             </CardContent>
@@ -275,9 +249,7 @@ async function fetchAllSlots() {
                   <SelectValue placeholder="Selecione um serviço" />
                 </SelectTrigger>
                 <SelectContent>
-                  {services.map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
+                  {services.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                 </SelectContent>
               </Select>
             </CardContent>
@@ -290,47 +262,30 @@ async function fetchAllSlots() {
             <CardTitle>Horários disponíveis</CardTitle>
           </CardHeader>
           <CardContent>
-            {!lojaId ? (
-              <p className="text-sm text-muted-foreground">Carregando informações da loja...</p>
-            ) : (
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {nextSixDates.map((d) => (
-                  <div key={d} className="space-y-2">
+            {!lojaId ? <p className="text-sm text-muted-foreground">Carregando informações da loja...</p> : <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {nextSixDates.map(d => <div key={d} className="space-y-2">
                     <div className="text-sm font-medium">
-                      {format(new Date(d), "PPP", { locale: ptBR })}
+                      {format(new Date(d), "PPP", {
+                  locale: ptBR
+                })}
                     </div>
-                    {loadingSlots ? (
-                      <div className="grid grid-cols-3 gap-2">
-                        {Array.from({ length: 6 }).map((_, i) => (
-                          <div key={i} className="h-9 rounded-md bg-muted animate-pulse" />
-                        ))}
-                      </div>
-                    ) : slotsByDate[d]?.length ? (
-                      <div className="flex flex-wrap gap-2">
-                        {slotsByDate[d].map((s) => {
-                          const isSelected = selectedSlot === s && selectedDateStr === d;
-                          return (
-                            <Button
-                              key={s}
-                              variant={isSelected ? "default" : "secondary"}
-                              onClick={() => {
-                                setSelectedSlot(s);
-                                setSelectedDateStr(d);
-                              }}
-                              size="sm"
-                            >
+                    {loadingSlots ? <div className="grid grid-cols-3 gap-2">
+                        {Array.from({
+                  length: 6
+                }).map((_, i) => <div key={i} className="h-9 rounded-md bg-muted animate-pulse" />)}
+                      </div> : slotsByDate[d]?.length ? <div className="flex flex-wrap gap-2">
+                        {slotsByDate[d].map(s => {
+                  const isSelected = selectedSlot === s && selectedDateStr === d;
+                  return <Button key={s} variant={isSelected ? "default" : "secondary"} onClick={() => {
+                    setSelectedSlot(s);
+                    setSelectedDateStr(d);
+                  }} size="sm">
                               {s}
-                            </Button>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">Nenhum horário disponível.</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+                            </Button>;
+                })}
+                      </div> : <p className="text-sm text-muted-foreground">Nenhum horário disponível.</p>}
+                  </div>)}
+              </div>}
           </CardContent>
         </Card>
 
@@ -342,32 +297,23 @@ async function fetchAllSlots() {
           <CardContent className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="name">Nome</Label>
-              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+              <Input id="name" value={name} onChange={e => setName(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="contact">Contato</Label>
-              <Input id="contact" value={contact} onChange={(e) => setContact(e.target.value)} />
+              <Input id="contact" value={contact} onChange={e => setContact(e.target.value)} />
             </div>
             <div className="md:col-span-2">
-              <Button
-                className="w-full text-primary-foreground font-semibold"
-                onClick={handleBook}
-                disabled={!selectedSlot || !selectedDateStr || !name || !contact || !professional || !service}
-              >
-                Agendar
-              </Button>
-              {!selectedSlot && (
-                <p className="mt-2 text-sm text-muted-foreground">
+              <Button onClick={handleBook} disabled={!selectedSlot || !selectedDateStr || !name || !contact || !professional || !service} className="w-full font-semibold text-slate-50">AGENDAR</Button>
+              {!selectedSlot && <p className="mt-2 text-sm text-muted-foreground">
                   Selecione um horário acima para habilitar o agendamento.
-                </p>
-              )}
+                </p>}
             </div>
           </CardContent>
         </Card>
 
         {/* Confirmação */}
-        {booking && (
-          <Card className="mt-6 border-primary/40">
+        {booking && <Card className="mt-6 border-primary/40">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-primary">
                 <CheckCircle2 /> Agendamento confirmado
@@ -375,20 +321,16 @@ async function fetchAllSlots() {
             </CardHeader>
             <CardContent className="space-y-2">
               <p>
-                {format(new Date(booking.DATA), "PPP")} às {String(booking.HORA).slice(0,5)}
+                {format(new Date(booking.DATA), "PPP")} às {String(booking.HORA).slice(0, 5)}
                 {booking.PROFISSIONAL ? ` com ${booking.PROFISSIONAL}` : ""}
               </p>
               {loja?.name && <p>Loja: {loja.name}</p>}
               {loja?.address && <p>Endereço: {loja.address}</p>}
-              {loja?.maps_url && (
-                <a className="text-primary underline" href={loja.maps_url} target="_blank" rel="noreferrer">
+              {loja?.maps_url && <a className="text-primary underline" href={loja.maps_url} target="_blank" rel="noreferrer">
                   Abrir no Maps
-                </a>
-              )}
+                </a>}
             </CardContent>
-          </Card>
-        )}
+          </Card>}
       </main>
-    </div>
-  );
+    </div>;
 }
