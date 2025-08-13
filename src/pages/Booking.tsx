@@ -22,6 +22,9 @@ interface Loja {
   opening_time?: string;
   closing_time?: string;
   slot_interval_minutes?: number;
+  nome_profissionais?: string;
+  escolha_serviços?: string;
+  instructions?: string;
 }
 
 export default function Booking() {
@@ -35,6 +38,8 @@ export default function Booking() {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [booking, setBooking] = useState<any>(null);
   const [pros, setPros] = useState<string[]>([]);
+  const [services, setServices] = useState<string[]>([]);
+  const [service, setService] = useState<string>("");
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [selectedDateStr, setSelectedDateStr] = useState<string | null>(null);
 
@@ -56,19 +61,24 @@ export default function Booking() {
     })();
   }, []);
 
-  // Carregar profissionais (fonte: distintos da tabela atual)
+  // Carregar profissionais e serviços a partir da info_loja selecionada
   useEffect(() => {
-    if (!lojaId) return;
-    (async () => {
-      const { data, error } = await supabase
-        .from("agendamentos_robustos")
-        .select("PROFISSIONAL")
-        .eq("loja_id", lojaId);
-      if (error) return;
-      const uniq = Array.from(new Set((data || []).map((r: any) => r.PROFISSIONAL).filter(Boolean)));
-      setPros(uniq);
-    })();
-  }, [lojaId]);
+    if (!lojaId || !lojas.length) return;
+    const lojaSel = lojas.find((l) => l.id === lojaId);
+    if (!lojaSel) return;
+
+    const prosList = (lojaSel.nome_profissionais || "")
+      .split(/[;,\n]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    setPros(prosList);
+
+    const servList = (lojaSel.escolha_serviços || "")
+      .split(/[;,\n]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    setServices(servList);
+  }, [lojaId, lojas]);
 
   const dateStr = useMemo(() => {
     if (!date) return "";
@@ -155,6 +165,14 @@ async function fetchAllSlots() {
       toast.warning("Preencha nome e contato.");
       return;
     }
+    if (!professional) {
+      toast.warning("Selecione um profissional.");
+      return;
+    }
+    if (!service) {
+      toast.warning("Selecione um serviço.");
+      return;
+    }
     if (!selectedSlot || !selectedDateStr) {
       toast.warning("Escolha um horário disponível.");
       return;
@@ -167,7 +185,8 @@ async function fetchAllSlots() {
           time: selectedSlot,
           name,
           contact,
-          professional: professional || undefined,
+          professional,
+          service,
         },
       });
       if (error) throw error;
@@ -219,7 +238,7 @@ async function fetchAllSlots() {
                     selected={date}
                     onSelect={setDate}
                     initialFocus
-                    className={cn("p-3 pointer-events-auto")}
+                    className={cn("p-3 pointer-events-auto [&_.rdp-head]:hidden")}
                   />
                 </PopoverContent>
               </Popover>
@@ -229,17 +248,35 @@ async function fetchAllSlots() {
           {/* Profissional (opcional) */}
           <Card>
             <CardHeader>
-              <CardTitle>Profissional (opcional)</CardTitle>
+              <CardTitle>Profissional</CardTitle>
             </CardHeader>
             <CardContent>
-              <Select value={professional || "__any__"} onValueChange={(v) => setProfessional(v === "__any__" ? "" : v)}>
+              <Select value={professional || undefined} onValueChange={setProfessional}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Qualquer" />
+                  <SelectValue placeholder="Selecione um profissional" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__any__">Qualquer</SelectItem>
                   {pros.map((p) => (
                     <SelectItem key={p} value={p}>{p}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </CardContent>
+          </Card>
+
+          {/* Serviço (obrigatório) */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Serviço</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Select value={service || undefined} onValueChange={setService}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um serviço" />
+                </SelectTrigger>
+                <SelectContent>
+                  {services.map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -313,9 +350,9 @@ async function fetchAllSlots() {
             </div>
             <div className="md:col-span-2">
               <Button
-                className="w-full"
+                className="w-full text-primary-foreground font-semibold"
                 onClick={handleBook}
-                disabled={!selectedSlot || !selectedDateStr || !name || !contact}
+                disabled={!selectedSlot || !selectedDateStr || !name || !contact || !professional || !service}
               >
                 Agendar
               </Button>
