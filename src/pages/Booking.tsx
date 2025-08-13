@@ -9,7 +9,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { CalendarIcon, MapPin, CheckCircle2 } from "lucide-react";
+import { ptBR } from "date-fns/locale";
+import { CalendarIcon, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface Loja {
@@ -30,10 +31,12 @@ export default function Booking() {
   const [professional, setProfessional] = useState<string>("");
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
-  const [slots, setSlots] = useState<string[]>([]);
+  const [slotsByDate, setSlotsByDate] = useState<Record<string, string[]>>({});
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [booking, setBooking] = useState<any>(null);
   const [pros, setPros] = useState<string[]>([]);
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [selectedDateStr, setSelectedDateStr] = useState<string | null>(null);
 
   useEffect(() => {
     document.title = "Agendar atendimento | ÁSPERUS";
@@ -75,56 +78,93 @@ export default function Booking() {
     return `${y}-${m}-${d}`;
   }, [date]);
 
-  async function fetchSlots() {
-    if (!lojaId || !dateStr) return;
-    setLoadingSlots(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("get_available_slots", {
-        body: { loja_id: lojaId, date: dateStr, professional: professional || undefined },
-      });
-      if (error) throw error;
-      setSlots((data?.slots as string[]) || []);
-    } catch (e: any) {
-      console.error(e);
-      toast.error("Erro ao buscar horários disponíveis.");
-    } finally {
-      setLoadingSlots(false);
-    }
+const baseDate = useMemo(() => date || new Date(), [date]);
+
+const nextSixDates = useMemo(() => {
+  const arr: string[] = [];
+  const d = new Date(baseDate);
+  for (let i = 0; i < 6; i++) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    arr.push(`${y}-${m}-${dd}`);
+    d.setDate(d.getDate() + 1);
   }
+  return arr;
+}, [baseDate]);
+
+async function fetchSlotsFor(dStr: string) {
+  const { data, error } = await supabase.functions.invoke("get_available_slots", {
+    body: { loja_id: lojaId, date: dStr, professional: professional || undefined },
+  });
+  if (error) throw error;
+  return (data?.slots as string[]) || [];
+}
+
+async function fetchAllSlots() {
+  if (!lojaId) return;
+  setLoadingSlots(true);
+  try {
+    const results: [string, string[]][] = await Promise.all(
+      nextSixDates.map(async (d): Promise<[string, string[]]> => {
+        try {
+          const s = await fetchSlotsFor(d);
+          return [d, s];
+        } catch {
+          return [d, [] as string[]];
+        }
+      })
+    );
+    const map: Record<string, string[]> = {};
+    results.forEach(([d, s]) => {
+      map[d] = s;
+    });
+    setSlotsByDate(map);
+  } catch (e: any) {
+    console.error(e);
+    toast.error("Erro ao buscar horários disponíveis.");
+  } finally {
+    setLoadingSlots(false);
+  }
+}
 
   // Atualização automática ao mudar loja/data/profissional
   useEffect(() => {
-    if (!lojaId || !dateStr) return;
-    fetchSlots();
-  }, [lojaId, dateStr, professional]);
+    if (!lojaId) return;
+    fetchAllSlots();
+  }, [lojaId, professional, nextSixDates]);
 
   // Realtime para atualizar slots quando houver mudanças
   useEffect(() => {
-    if (!lojaId || !dateStr) return;
+    if (!lojaId) return;
     const channel = supabase
       .channel("booking-slots")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "agendamentos_robustos" },
-        () => fetchSlots()
+        () => fetchAllSlots()
       )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [lojaId, dateStr, professional]);
+  }, [lojaId, professional, nextSixDates]);
 
-  async function handleBook(time: string) {
+  async function handleBook() {
     if (!name || !contact) {
       toast.warning("Preencha nome e contato.");
+      return;
+    }
+    if (!selectedSlot || !selectedDateStr) {
+      toast.warning("Escolha um horário disponível.");
       return;
     }
     try {
       const { data, error } = await supabase.functions.invoke("book_slot", {
         body: {
           loja_id: lojaId,
-          date: dateStr,
-          time,
+          date: selectedDateStr,
+          time: selectedSlot,
           name,
           contact,
           professional: professional || undefined,
@@ -133,7 +173,9 @@ export default function Booking() {
       if (error) throw error;
       setBooking(data?.booking);
       toast.success("Agendamento confirmado!");
-      fetchSlots();
+      setSelectedSlot(null);
+      setSelectedDateStr(null);
+      fetchAllSlots();
     } catch (e: any) {
       const msg = e?.message || "Erro ao confirmar agendamento.";
       toast.error(msg.includes("duplicate") ? "Horário indisponível." : msg);
@@ -147,34 +189,10 @@ export default function Booking() {
       <main className="container mx-auto px-6 py-8">
         <header className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-primary">Agendar atendimento</h1>
-          <p className="text-muted-foreground">Escolha a loja, data e confirme seu horário</p>
+          <p className="text-muted-foreground">Escolha a data e confirme seu horário</p>
         </header>
 
-        <div className="grid gap-6 md:grid-cols-3">
-          {/* Loja */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Loja</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Select value={lojaId} onValueChange={setLojaId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a loja" />
-                </SelectTrigger>
-                <SelectContent>
-                  {lojas.map((l) => (
-                    <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {loja?.address && (
-                <div className="text-sm text-muted-foreground flex items-center gap-2">
-                  <MapPin size={16} />
-                  <span>{loja.address}</span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        <div className="grid gap-6 md:grid-cols-2">
 
           {/* Data */}
           <Card>
@@ -235,24 +253,45 @@ export default function Booking() {
             <CardTitle>Horários disponíveis</CardTitle>
           </CardHeader>
           <CardContent>
-            {(!lojaId || !dateStr) && (
-              <p className="text-sm text-muted-foreground">Selecione loja e data para ver os horários.</p>
-            )}
-            {lojaId && dateStr && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-                {loadingSlots ? (
-                  Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="h-10 rounded-md bg-muted animate-pulse" />
-                  ))
-                ) : slots.length ? (
-                  slots.map((s) => (
-                    <Button key={s} variant="secondary" onClick={() => handleBook(s)}>
-                      {s}
-                    </Button>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground">Nenhum horário disponível.</p>
-                )}
+            {!lojaId ? (
+              <p className="text-sm text-muted-foreground">Carregando informações da loja...</p>
+            ) : (
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {nextSixDates.map((d) => (
+                  <div key={d} className="space-y-2">
+                    <div className="text-sm font-medium">
+                      {format(new Date(d), "PPP", { locale: ptBR })}
+                    </div>
+                    {loadingSlots ? (
+                      <div className="grid grid-cols-3 gap-2">
+                        {Array.from({ length: 6 }).map((_, i) => (
+                          <div key={i} className="h-9 rounded-md bg-muted animate-pulse" />
+                        ))}
+                      </div>
+                    ) : slotsByDate[d]?.length ? (
+                      <div className="flex flex-wrap gap-2">
+                        {slotsByDate[d].map((s) => {
+                          const isSelected = selectedSlot === s && selectedDateStr === d;
+                          return (
+                            <Button
+                              key={s}
+                              variant={isSelected ? "default" : "secondary"}
+                              onClick={() => {
+                                setSelectedSlot(s);
+                                setSelectedDateStr(d);
+                              }}
+                              size="sm"
+                            >
+                              {s}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Nenhum horário disponível.</p>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
           </CardContent>
@@ -271,6 +310,20 @@ export default function Booking() {
             <div className="space-y-2">
               <Label htmlFor="contact">Contato</Label>
               <Input id="contact" value={contact} onChange={(e) => setContact(e.target.value)} />
+            </div>
+            <div className="md:col-span-2">
+              <Button
+                className="w-full"
+                onClick={handleBook}
+                disabled={!selectedSlot || !selectedDateStr || !name || !contact}
+              >
+                Agendar
+              </Button>
+              {!selectedSlot && (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Selecione um horário acima para habilitar o agendamento.
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
